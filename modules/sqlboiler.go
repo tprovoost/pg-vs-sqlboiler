@@ -3,7 +3,8 @@ package modules
 import (
 	"context"
 	"fmt"
-	models "orm_compare/database_models"
+	dbmodels "orm_compare/database_models"
+	models "orm_compare/models"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -33,12 +34,15 @@ func RunSQLBoiler() error {
 }
 
 func boilerRead(ctx context.Context, exec boil.ContextExecutor) error {
-	cpt, err := models.Products().Count(ctx, exec)
+	cpt, err := dbmodels.Products().Count(ctx, exec)
 
 	if err != nil {
 		return fmt.Errorf("error while prompting count %v", err)
 	}
 	fmt.Println(cpt)
+
+	secondProduct, err := dbmodels.FindProduct(ctx, exec, 2)
+	fmt.Printf("Product with id 2 is: %v\n", secondProduct)
 
 	return nil
 }
@@ -47,21 +51,14 @@ func boilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
 	return nil
 }
 
-// QuantityPerProduct is a structure thaat shows how many items were sold
-// for a specific product
-type QuantityPerProduct struct {
-	ProductID int `db:"product_id"`
-	Quantity  int `db:"quantity"`
-}
-
 // Fetch product Ids and their quantity
 func complexQuery(ctx context.Context, db *sqlx.DB) error {
 
-	productsAndQuantities := make([]QuantityPerProduct, 0)
+	productsAndQuantities := make([]models.QuantityPerProduct, 0)
 
 	fmt.Println("Normal SQL still usable for  more complex queries")
 
-	rows, err := models.NewQuery(
+	rows, err := dbmodels.NewQuery(
 		qm.Select("product_id, sum(quantity)"),
 		qm.From("purchase_items"),
 		qm.GroupBy("product_id"),
@@ -69,7 +66,7 @@ func complexQuery(ctx context.Context, db *sqlx.DB) error {
 	).Query(db)
 
 	for rows.Next() {
-		var qpp QuantityPerProduct
+		var qpp models.QuantityPerProduct
 		if err = rows.Scan(&qpp.ProductID, &qpp.Quantity); err != nil {
 			return fmt.Errorf("error while fetching quantity join %v", err)
 		}
@@ -85,7 +82,7 @@ func complexQuery(ctx context.Context, db *sqlx.DB) error {
 
 	fmt.Println("Or use the SQLX equivalent")
 
-	productsAndQuantities2 := []QuantityPerProduct{}
+	productsAndQuantities2 := []models.QuantityPerProduct{}
 
 	err = db.Select(&productsAndQuantities2, "SELECT product_id, SUM(quantity) quantity FROM purchase_items GROUP BY product_id ORDER BY product_id")
 
