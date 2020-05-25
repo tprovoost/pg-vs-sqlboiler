@@ -4,20 +4,13 @@ import (
 	"orm_compare/modules"
 
 	_ "github.com/lib/pq"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 func main() {
+	boil.DebugMode = true
 
-	/*var count int16
-	row := db.QueryRow("SELECT COUNT(*) FROM products")
-	err := row.Scan(&count)
-
-	if err != nil {
-		fmt.Printf("Error while prompting count %v\n", err)
-	}
-
-	fmt.Printf("Count 1 : %d\n", count)*/
-
-	modules.RunSqlBoiler()
+	modules.RunSQLBoiler()
+	modules.RunPG()
 
 }

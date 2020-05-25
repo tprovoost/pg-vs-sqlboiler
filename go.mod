@@ -6,8 +6,9 @@ require (
 	github.com/ericlagergren/decimal v0.0.0-20191206042408-88212e6cfca9 // indirect
 	github.com/friendsofgo/errors v0.9.2
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/go-pg/pg/v10 v10.0.0-alpha.0 // indirect
+	github.com/go-pg/pg/v10 v10.0.0-alpha.0
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
+	github.com/jmoiron/sqlx v1.2.0
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/lib/pq v1.5.2
 	github.com/mitchellh/mapstructure v1.3.0 // indirect
