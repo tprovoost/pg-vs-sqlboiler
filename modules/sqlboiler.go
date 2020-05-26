@@ -3,16 +3,25 @@ package modules
 import (
 	"context"
 	"fmt"
-	dbmodels "orm_compare/database_models"
-	models "orm_compare/models"
+
+	bmodels "orm_compare/modules/bmodels"
+	models "orm_compare/modules/shared"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
+func wrapCall(ctx context.Context, exec boil.ContextExecutor, fn func(context.Context, boil.ContextExecutor) error) {
+	if err := fn(ctx, exec); err != nil {
+		fmt.Printf("error while running function %T: %v\n", fn, err)
+	}
+}
+
 // RunSQLBoiler runs a few methods with the SQL Boiler module
-func RunSQLBoiler() error {
+func RunSQLBoiler() {
+	fmt.Println("-----------")
 	fmt.Println("Starts SQL Boiler")
 	ctx := context.Background()
 
@@ -20,50 +29,72 @@ func RunSQLBoiler() error {
 	db, err := sqlx.Connect("postgres", "dbname=pgguide user=thomasprovoost host=localhost sslmode=disable")
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return
 	}
 	defer db.Close()
 
-	boilerRead(ctx, db)
-	err = complexQuery(ctx, db)
-	if err != nil {
-		return fmt.Errorf("error while running RunSQLBoiler: %v", err)
-	}
+	wrapCall(ctx, db, boilerRead)
+	wrapCall(ctx, db, boilerFetchIn)
+	wrapCall(ctx, db, boilerInsert)
+	wrapCall(ctx, db, boilerComplexQuery)
+	wrapCall(ctx, db, boilerSqlxQuery) // to show the compatibility
+}
 
+func test() error {
+	fmt.Println("Hallo")
 	return nil
 }
 
 func boilerRead(ctx context.Context, exec boil.ContextExecutor) error {
-	cpt, err := dbmodels.Products().Count(ctx, exec)
+	fmt.Println("----------\nRead")
+	cpt, err := bmodels.Products().Count(ctx, exec)
 
 	if err != nil {
 		return fmt.Errorf("error while prompting count %v", err)
 	}
-	fmt.Println(cpt)
+	fmt.Printf("Amount of products: %d\n", cpt)
 
-	secondProduct, err := dbmodels.FindProduct(ctx, exec, 2)
-	fmt.Printf("Product with id 2 is: %v\n", secondProduct)
+	secondProduct, err := bmodels.FindProduct(ctx, exec, 2)
+	fmt.Printf("Also, this is the product with id 2:\n%v\n", secondProduct)
+
+	return nil
+}
+
+func boilerFetchIn(ctx context.Context, exec boil.ContextExecutor) error {
+	fmt.Println("----------\nFetches items with known product IDs.")
+	productIds := []int{1, 5, 10}
+	products, err := bmodels.Products(bmodels.ProductWhere.ID.IN(productIds)).All(ctx, exec)
+
+	if err != nil {
+		return fmt.Errorf("error while fetching multiple products %v", err)
+	}
+
+	for i := 0; i < len(products); i++ {
+		product := products[i]
+		fmt.Printf("%v\n", product)
+	}
 
 	return nil
 }
 
 func boilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
+	// var product bmodels.Product
+
+	// product.Insert(ctx, exec, boil.Infer())
 	return nil
 }
 
 // Fetch product Ids and their quantity
-func complexQuery(ctx context.Context, db *sqlx.DB) error {
-
+func boilerComplexQuery(ctx context.Context, exec boil.ContextExecutor) error {
+	fmt.Println("----------\nMake a complex query with Boiler QueryMod:")
 	productsAndQuantities := make([]models.QuantityPerProduct, 0)
 
-	fmt.Println("Normal SQL still usable for  more complex queries")
-
-	rows, err := dbmodels.NewQuery(
+	rows, err := bmodels.NewQuery(
 		qm.Select("product_id, sum(quantity)"),
 		qm.From("purchase_items"),
 		qm.GroupBy("product_id"),
 		qm.OrderBy("product_id"),
-	).Query(db)
+	).QueryContext(ctx, exec)
 
 	for rows.Next() {
 		var qpp models.QuantityPerProduct
@@ -74,25 +105,40 @@ func complexQuery(ctx context.Context, db *sqlx.DB) error {
 		productsAndQuantities = append(productsAndQuantities, qpp)
 	}
 
-	for i := 0; i < len(productsAndQuantities); i++ {
-		fmt.Printf("%v\n", productsAndQuantities[i])
+	sum := 0
+	for _, qpp := range productsAndQuantities {
+		sum += qpp.Quantity
 	}
+	fmt.Printf("Average quantity per product is: %d\n", sum/len(productsAndQuantities))
 
+	return nil
+}
+
+func boilerSqlxQuery(ctx context.Context, exec boil.ContextExecutor) error {
 	// It is actually easier with SQLX as the binding can be done directly to an array of a struct.
+	db := exec.(*sqlx.DB)
+	fmt.Println("Or use the SQLX equivalent:")
 
-	fmt.Println("Or use the SQLX equivalent")
+	productsAndQuantities := []models.QuantityPerProduct{}
 
-	productsAndQuantities2 := []models.QuantityPerProduct{}
-
-	err = db.Select(&productsAndQuantities2, "SELECT product_id, SUM(quantity) quantity FROM purchase_items GROUP BY product_id ORDER BY product_id")
+	err := db.Select(&productsAndQuantities, "SELECT product_id, SUM(quantity) quantity FROM purchase_items GROUP BY product_id ORDER BY product_id")
 
 	if err != nil {
 		return fmt.Errorf("error while fetching results %v", err)
 	}
 
-	for i := 0; i < len(productsAndQuantities2); i++ {
-		fmt.Printf("%v\n", productsAndQuantities2[i])
+	sum := 0
+	for _, qpp := range productsAndQuantities {
+		sum += qpp.Quantity
 	}
-
+	fmt.Printf("Average per product: %d\n", sum/len(productsAndQuantities))
 	return nil
+}
+
+func wrapString(s string) null.String {
+	return null.NewString(s, false)
+}
+
+func wrapDecimal(d float64) null.Float64 {
+	return null.NewFloat64(d, false)
 }

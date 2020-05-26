@@ -1,28 +1,13 @@
 package modules
 
 import (
-	"database/sql"
 	"fmt"
-	models "orm_compare/models"
-	"time"
+	"orm_compare/modules/pgmodels"
+
+	models "orm_compare/modules/shared"
 
 	"github.com/go-pg/pg/v10"
 )
-
-// We have to declare all structures first
-
-// ProductPG represents a product in database
-type ProductPG struct {
-	// if struct has different name than the table, it is necessary
-	// to define the correct name.
-	tableName struct{} `pg:"select:products"`
-	ID        int64
-	Title     string
-	Price     float64
-	CreatedAt time.Time
-	DeletedAt sql.NullTime
-	Tags      []string `pg:",array"`
-}
 
 // RunPG executes all PG commands
 func RunPG() error {
@@ -35,7 +20,12 @@ func RunPG() error {
 	})
 	defer db.Close()
 
-	if err := pgReadOne(db); err != nil {
+	if err := pgReadOneProduct(db); err != nil {
+		fmt.Println(err)
+		return fmt.Errorf("error while reading value %v", err)
+	}
+
+	if err := pgReadOnePurchaseItem(db); err != nil {
 		fmt.Println(err)
 		return fmt.Errorf("error while reading value %v", err)
 	}
@@ -53,23 +43,37 @@ func RunPG() error {
 	return nil
 }
 
-func pgReadOne(db *pg.DB) error {
+func pgReadOneProduct(db *pg.DB) error {
 	fmt.Println("Read one element")
 
-	product := &ProductPG{ID: 2}
+	product := &pgmodels.ProductPG{ID: 2}
 	err := db.Select(product)
 	if err != nil {
 		return fmt.Errorf("error while selecting product %v", err)
 	}
 
-	fmt.Printf("Product with id 2 is: %v\n", product)
+	fmt.Printf("Product with id 2 is: %+v\n", product)
+
+	return nil
+}
+
+func pgReadOnePurchaseItem(db *pg.DB) error {
+	fmt.Println("Read one element with wrong columns order")
+
+	pItem := &pgmodels.PurchaseItemPG{ID: 2}
+	err := db.Select(pItem)
+	if err != nil {
+		return fmt.Errorf("error while selecting product %v", err)
+	}
+
+	fmt.Printf("Purchase item is correct: %+v\n", pItem)
 
 	return nil
 }
 
 func pgReadAll(db *pg.DB) error {
 	fmt.Println("Read data")
-	var products []ProductPG
+	var products []pgmodels.ProductPG
 
 	cpt, err := db.Model(&products).Count()
 	if err != nil {
@@ -88,9 +92,13 @@ func pgComplexQuery(db *pg.DB) error {
 		return fmt.Errorf("error while fetching results %v", err)
 	}
 
-	for i := 0; i < len(qpps); i++ {
-		fmt.Printf("%v\n", qpps[i])
+	// Now calculate manually all quantities together
+	sum := 0
+	for _, qpp := range qpps {
+		sum += qpp.Quantity
 	}
+
+	fmt.Printf("Amount of purchased items, ever: %d\n", sum)
 
 	return nil
 }

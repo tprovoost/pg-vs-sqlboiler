@@ -8,9 +8,9 @@ import (
 )
 
 func main() {
-	boil.DebugMode = true
+	boil.DebugMode = false
 
 	modules.RunSQLBoiler()
-	modules.RunPG()
+	//modules.RunPG()
 
 }

@@ -1,4 +1,4 @@
-package models
+package shared
 
 // QuantityPerProduct is a structure thaat shows how many items were sold
 // for a specific product
