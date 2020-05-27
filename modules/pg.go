@@ -2,12 +2,21 @@ package modules
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/tprovoost/pg-vs-sqlboiler/modules/pgmodels"
 	models "github.com/tprovoost/pg-vs-sqlboiler/modules/shared"
 
 	"github.com/go-pg/pg/v10"
 )
+
+func wrapPGFunction(db *pg.DB, fn func(*pg.DB) error) {
+	startTime := time.Now()
+	if err := fn(db); err != nil {
+		fmt.Printf("error while running pg function %v\n", err)
+	}
+	fmt.Printf("<%d ns>\n", time.Now().Sub(startTime))
+}
 
 // RunPG executes all PG commands
 func RunPG() error {
@@ -21,25 +30,11 @@ func RunPG() error {
 	})
 	defer db.Close()
 
-	if err := pgReadOneProduct(db); err != nil {
-		fmt.Println(err)
-		return fmt.Errorf("error while reading value %v", err)
-	}
-
-	if err := pgReadOnePurchaseItem(db); err != nil {
-		fmt.Println(err)
-		return fmt.Errorf("error while reading value %v", err)
-	}
-
-	if err := pgReadAll(db); err != nil {
-		fmt.Println(err)
-		return fmt.Errorf("error while reading all %v", err)
-	}
-
-	if err := pgComplexQuery(db); err != nil {
-		fmt.Println(err)
-		return fmt.Errorf("error while doing complex query %v", err)
-	}
+	wrapPGFunction(db, pgReadOneProduct)
+	wrapPGFunction(db, pgReadOnePurchaseItem)
+	wrapPGFunction(db, pgFetchIn)
+	wrapPGFunction(db, pgReadAll)
+	wrapPGFunction(db, pgComplexQuery)
 
 	return nil
 }
@@ -55,6 +50,23 @@ func pgReadOneProduct(db *pg.DB) error {
 	}
 
 	fmt.Printf("Product with id 2 is: %+v\n", product)
+
+	return nil
+}
+
+func pgFetchIn(db *pg.DB) error {
+	fmt.Println("-----------")
+	productIds := []int{1, 5, 10}
+	fmt.Printf("Fetches items with known product IDs: %v\n", productIds)
+
+	var products []pgmodels.ProductPG
+	if err := db.Model(&products).WhereIn("id IN (?)", productIds).Select(); err != nil {
+		return fmt.Errorf("Error while fetching multiple products: %v", err)
+	}
+
+	for _, p := range products {
+		fmt.Println(p)
+	}
 
 	return nil
 }
