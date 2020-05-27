@@ -3,20 +3,25 @@ package modules
 import (
 	"context"
 	"fmt"
+	"time"
 
 	bmodels "orm_compare/modules/bmodels"
 	models "orm_compare/modules/shared"
 
+	"github.com/ericlagergren/decimal"
 	"github.com/jmoiron/sqlx"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	"github.com/volatiletech/sqlboiler/v4/types"
 )
 
-func wrapCall(ctx context.Context, exec boil.ContextExecutor, fn func(context.Context, boil.ContextExecutor) error) {
+func wrapFunction(ctx context.Context, exec boil.ContextExecutor, fn func(context.Context, boil.ContextExecutor) error) {
+	startTime := time.Now()
 	if err := fn(ctx, exec); err != nil {
-		fmt.Printf("error while running function %T: %v\n", fn, err)
+		fmt.Printf("error while running function %v\n", err)
 	}
+	fmt.Printf("<%d ns>\n", time.Now().Sub(startTime))
 }
 
 // RunSQLBoiler runs a few methods with the SQL Boiler module
@@ -33,16 +38,12 @@ func RunSQLBoiler() {
 	}
 	defer db.Close()
 
-	wrapCall(ctx, db, boilerRead)
-	wrapCall(ctx, db, boilerFetchIn)
-	wrapCall(ctx, db, boilerInsert)
-	wrapCall(ctx, db, boilerComplexQuery)
-	wrapCall(ctx, db, boilerSqlxQuery) // to show the compatibility
-}
-
-func test() error {
-	fmt.Println("Hallo")
-	return nil
+	wrapFunction(ctx, db, cleanUp)
+	wrapFunction(ctx, db, boilerRead)
+	wrapFunction(ctx, db, boilerFetchIn)
+	wrapFunction(ctx, db, boilerInsert)
+	wrapFunction(ctx, db, boilerComplexQuery)
+	wrapFunction(ctx, db, boilerSqlxQuery) // to show the compatibility
 }
 
 func boilerRead(ctx context.Context, exec boil.ContextExecutor) error {
@@ -61,8 +62,9 @@ func boilerRead(ctx context.Context, exec boil.ContextExecutor) error {
 }
 
 func boilerFetchIn(ctx context.Context, exec boil.ContextExecutor) error {
-	fmt.Println("----------\nFetches items with known product IDs.")
+	fmt.Println("----------")
 	productIds := []int{1, 5, 10}
+	fmt.Printf("Fetches items with known product IDs: %v\n", productIds)
 	products, err := bmodels.Products(bmodels.ProductWhere.ID.IN(productIds)).All(ctx, exec)
 
 	if err != nil {
@@ -77,16 +79,55 @@ func boilerFetchIn(ctx context.Context, exec boil.ContextExecutor) error {
 	return nil
 }
 
-func boilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
-	// var product bmodels.Product
+func cleanUp(ctx context.Context, exec boil.ContextExecutor) error {
+	fmt.Println("----------")
+	fmt.Println("Cleanup:")
+	count, err := bmodels.Products(qm.Where("id>?", 20)).DeleteAll(ctx, exec)
 
-	// product.Insert(ctx, exec, boil.Infer())
+	if err != nil {
+		return fmt.Errorf("could not clean: %v", err)
+	}
+
+	fmt.Printf("Sucessfully deleted %d rows\n", count)
+
+	return nil
+}
+
+func boilerDelete(ctx context.Context, exec boil.ContextExecutor) error {
+	return nil
+}
+
+func boilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
+	fmt.Println("----------")
+	fmt.Println("Insert:")
+	title := "Smartphone"
+	var product bmodels.Product
+
+	product.Title = wrapS(title)
+	product.Price = wrapD(12345, 2)
+	product.Tags = []string{"Technology"}
+
+	if err := product.Insert(ctx, exec, boil.Infer()); err != nil {
+		return fmt.Errorf("error while inserting %v", err)
+	}
+
+	fmt.Println("Product inserted, now reading...")
+	product.Reload(ctx, exec)
+
+	p, err := bmodels.Products(qm.Where("title=?", title)).One(ctx, exec)
+	if err != nil {
+		return fmt.Errorf("error while reading after inserting %v", err)
+	}
+
+	fmt.Println(p)
+
 	return nil
 }
 
 // Fetch product Ids and their quantity
 func boilerComplexQuery(ctx context.Context, exec boil.ContextExecutor) error {
-	fmt.Println("----------\nMake a complex query with Boiler QueryMod:")
+	fmt.Println("----------")
+	fmt.Println("Make a complex query with Boiler QueryMod:")
 	productsAndQuantities := make([]models.QuantityPerProduct, 0)
 
 	rows, err := bmodels.NewQuery(
@@ -135,10 +176,15 @@ func boilerSqlxQuery(ctx context.Context, exec boil.ContextExecutor) error {
 	return nil
 }
 
-func wrapString(s string) null.String {
-	return null.NewString(s, false)
+func wrapS(s string) null.String {
+	return null.NewString(s, true)
 }
 
-func wrapDecimal(d float64) null.Float64 {
-	return null.NewFloat64(d, false)
+func wrapF(d float64) null.Float64 {
+	return null.NewFloat64(d, true)
+}
+
+func wrapD(value int64, scale int) types.NullDecimal {
+	big := decimal.New(value, scale)
+	return types.NewNullDecimal(big)
 }

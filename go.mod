@@ -3,7 +3,7 @@ module orm_compare
 go 1.14
 
 require (
-	github.com/ericlagergren/decimal v0.0.0-20191206042408-88212e6cfca9 // indirect
+	github.com/ericlagergren/decimal v0.0.0-20181231230500-73749d4874d5
 	github.com/friendsofgo/errors v0.9.2
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-pg/pg/v10 v10.0.0-alpha.0
