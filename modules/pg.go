@@ -2,9 +2,9 @@ package modules
 
 import (
 	"fmt"
-	"orm_compare/modules/pgmodels"
 
-	models "orm_compare/modules/shared"
+	"github.com/tprovoost/pg-vs-sqlboiler/modules/pgmodels"
+	models "github.com/tprovoost/pg-vs-sqlboiler/modules/shared"
 
 	"github.com/go-pg/pg/v10"
 )

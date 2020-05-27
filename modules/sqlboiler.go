@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	bmodels "orm_compare/modules/bmodels"
-	models "orm_compare/modules/shared"
+	bmodels "github.com/tprovoost/pg-vs-sqlboiler/modules/bmodels"
+	models "github.com/tprovoost/pg-vs-sqlboiler/modules/shared"
 
 	"github.com/ericlagergren/decimal"
 	"github.com/jmoiron/sqlx"
+
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"

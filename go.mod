@@ -1,4 +1,4 @@
-module orm_compare
+module github.com/tprovoost/pg-vs-sqlboiler
 
 go 1.14
 

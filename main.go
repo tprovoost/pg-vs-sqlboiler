@@ -1,9 +1,8 @@
 package main
 
 import (
-	"orm_compare/modules"
-
 	_ "github.com/lib/pq"
+	"github.com/tprovoost/pg-vs-sqlboiler/modules"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
