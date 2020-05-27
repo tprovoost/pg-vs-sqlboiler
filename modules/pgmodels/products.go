@@ -1,8 +1,9 @@
 package pgmodels
 
 import (
-	"database/sql"
 	"time"
+
+	"github.com/go-pg/pg/v10"
 )
 
 // ProductPG represents a product in database
@@ -14,6 +15,6 @@ type ProductPG struct {
 	Title     string
 	Price     float64
 	CreatedAt time.Time
-	DeletedAt sql.NullTime `pg:",soft_delete"`
-	Tags      []string     `pg:",array"`
+	DeletedAt pg.NullTime `pg:",soft_delete"`
+	Tags      []string    `pg:",array"`
 }

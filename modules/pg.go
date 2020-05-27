@@ -11,6 +11,7 @@ import (
 
 // RunPG executes all PG commands
 func RunPG() error {
+	fmt.Println("-----------")
 	fmt.Println("Starts PG")
 
 	db := pg.Connect(&pg.Options{
@@ -44,6 +45,7 @@ func RunPG() error {
 }
 
 func pgReadOneProduct(db *pg.DB) error {
+	fmt.Println("-----------")
 	fmt.Println("Read one element")
 
 	product := &pgmodels.ProductPG{ID: 2}
@@ -58,6 +60,7 @@ func pgReadOneProduct(db *pg.DB) error {
 }
 
 func pgReadOnePurchaseItem(db *pg.DB) error {
+	fmt.Println("-----------")
 	fmt.Println("Read one element with wrong columns order")
 
 	pItem := &pgmodels.PurchaseItemPG{ID: 2}
@@ -72,6 +75,7 @@ func pgReadOnePurchaseItem(db *pg.DB) error {
 }
 
 func pgReadAll(db *pg.DB) error {
+	fmt.Println("-----------")
 	fmt.Println("Read data")
 	var products []pgmodels.ProductPG
 
@@ -85,6 +89,7 @@ func pgReadAll(db *pg.DB) error {
 }
 
 func pgComplexQuery(db *pg.DB) error {
+	fmt.Println("-----------")
 	var qpps []models.QuantityPerProduct
 	_, err := db.Query(&qpps, `SELECT product_id, SUM(quantity) quantity FROM purchase_items GROUP BY product_id ORDER BY product_id`)
 

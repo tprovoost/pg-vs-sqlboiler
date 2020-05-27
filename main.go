@@ -10,6 +10,6 @@ func main() {
 	boil.DebugMode = false
 
 	modules.RunSQLBoiler()
-	//modules.RunPG()
+	modules.RunPG()
 
 }

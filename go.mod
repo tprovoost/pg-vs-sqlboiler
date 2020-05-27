@@ -6,9 +6,11 @@ require (
 	github.com/ericlagergren/decimal v0.0.0-20181231230500-73749d4874d5
 	github.com/friendsofgo/errors v0.9.2
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/go-pg/pg v8.0.6+incompatible
 	github.com/go-pg/pg/v10 v10.0.0-alpha.0
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/lib/pq v1.5.2
@@ -27,4 +29,5 @@ require (
 	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2 // indirect
 	golang.org/x/sys v0.0.0-20200523222454-059865788121 // indirect
 	gopkg.in/ini.v1 v1.56.0 // indirect
+	mellium.im/sasl v0.2.1 // indirect
 )
