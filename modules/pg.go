@@ -13,15 +13,16 @@ import (
 func wrapPGFunction(db *pg.DB, fn func(*pg.DB) error) {
 	startTime := time.Now()
 	if err := fn(db); err != nil {
-		fmt.Printf("error while running pg function %v\n", err)
+		fmt.Printf("ERROR: %v\n", err)
 	}
 	fmt.Printf("<%d ns>\n", time.Now().Sub(startTime))
 }
 
 // RunPG executes all PG commands
 func RunPG() error {
-	fmt.Println("-----------")
+	fmt.Println("\n-----------")
 	fmt.Println("Starts PG")
+	fmt.Println("-----------")
 
 	db := pg.Connect(&pg.Options{
 		User:      "thomasprovoost",
@@ -30,11 +31,26 @@ func RunPG() error {
 	})
 	defer db.Close()
 
+	wrapPGFunction(db, pgCleanUp)
 	wrapPGFunction(db, pgReadOneProduct)
 	wrapPGFunction(db, pgReadOnePurchaseItem)
 	wrapPGFunction(db, pgFetchIn)
 	wrapPGFunction(db, pgReadAll)
 	wrapPGFunction(db, pgComplexQuery)
+	wrapPGFunction(db, pgInsertOne)
+
+	return nil
+}
+
+func pgCleanUp(db *pg.DB) error {
+	minID := 20
+
+	res, err := db.Model((*pgmodels.ProductPG)(nil)).Where("id>?", minID).Delete()
+	if err != nil {
+		return fmt.Errorf("could not delete products - %v", err)
+	}
+
+	fmt.Printf("Sucessfully deleted %d rows\n", res.RowsAffected())
 
 	return nil
 }
@@ -88,7 +104,7 @@ func pgReadOnePurchaseItem(db *pg.DB) error {
 
 func pgReadAll(db *pg.DB) error {
 	fmt.Println("-----------")
-	fmt.Println("Read data")
+	fmt.Println("Simply count products")
 	var products []pgmodels.ProductPG
 
 	cpt, err := db.Model(&products).Count()
@@ -102,6 +118,7 @@ func pgReadAll(db *pg.DB) error {
 
 func pgComplexQuery(db *pg.DB) error {
 	fmt.Println("-----------")
+	fmt.Println("Complex query")
 	var qpps []models.QuantityPerProduct
 	_, err := db.Query(&qpps, `SELECT product_id, SUM(quantity) quantity FROM purchase_items GROUP BY product_id ORDER BY product_id`)
 
@@ -116,6 +133,33 @@ func pgComplexQuery(db *pg.DB) error {
 	}
 
 	fmt.Printf("Amount of purchased items, ever: %d\n", sum)
+
+	return nil
+}
+
+func pgInsertOne(db *pg.DB) error {
+	fmt.Println("-----------")
+	fmt.Println("Insert one product into database")
+	var product pgmodels.ProductPG
+	title := "Smartphone"
+
+	product.Title = title
+	product.Price = 123.45
+	product.Tags = []string{"Technology"}
+
+	if err := db.Insert(&product); err != nil {
+		return fmt.Errorf("Could not insert product %s. reason: %v", title, err)
+	}
+
+	fmt.Println("Inserted... now read")
+
+	var p pgmodels.ProductPG
+
+	if err := db.Model(&p).Where("title=?", title).Select(); err != nil {
+		return fmt.Errorf("Could not read product %s. reason: %v", title, err)
+	}
+
+	fmt.Println(p)
 
 	return nil
 }
