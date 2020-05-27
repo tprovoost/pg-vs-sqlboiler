@@ -8,7 +8,7 @@ package pgmodels
 // If name is too different though, it's always possible to
 // define the proper column name with magic quotes.
 type PurchaseItemPG struct {
-	tableName  struct{} `pg:"select:purchase_items"`
+	tableName  struct{} `pg:"purchase_items"`
 	State      string
 	ID         int64 `pg:",pk"`
 	PurchaseID int64
