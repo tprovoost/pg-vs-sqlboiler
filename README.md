@@ -18,7 +18,7 @@ In my case, I decided to install SQL Boiler directly by running the commands wit
 This is my file:
 
 ```toml
-output = "./src/orm_compare/database_models"
+output = "./src/pg-vs-sqlboiler/modules/bmodels"
 wipe = true
 no_tests = true
 
