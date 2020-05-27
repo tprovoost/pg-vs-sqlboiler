@@ -39,7 +39,7 @@ func RunSQLBoiler() {
 	}
 	defer db.Close()
 
-	wrapFunction(ctx, db, cleanUp)
+	wrapFunction(ctx, db, boilerCleanUp)
 	wrapFunction(ctx, db, boilerRead)
 	wrapFunction(ctx, db, boilerFetchIn)
 	wrapFunction(ctx, db, boilerInsert)
@@ -80,7 +80,7 @@ func boilerFetchIn(ctx context.Context, exec boil.ContextExecutor) error {
 	return nil
 }
 
-func cleanUp(ctx context.Context, exec boil.ContextExecutor) error {
+func boilerCleanUp(ctx context.Context, exec boil.ContextExecutor) error {
 	fmt.Println("----------")
 	fmt.Println("Cleanup:")
 	count, err := bmodels.Products(qm.Where("id>?", 20)).DeleteAll(ctx, exec)
