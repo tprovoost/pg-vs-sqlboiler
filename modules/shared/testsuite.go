@@ -51,6 +51,7 @@ type BenchmarkSuite struct {
 // Print displays all results in an understandable manner
 func (suite *BenchmarkSuite) Print() {
 	fmt.Println("Function\tSQL Boiler\tPG")
+	fmt.Println("----------------------------------------")
 	fmt.Print("Insert:\t\t")
 	printBenchmarks(suite.Insert)
 

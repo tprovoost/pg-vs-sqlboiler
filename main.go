@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -13,10 +14,11 @@ import (
 func main() {
 	boil.DebugMode = false
 
-	var suite shared.BenchmarkSuite
-
 	// First clean up the database.
-	modules.BoilerRunBenchmark(modules.BoilerCleanUp, 1)
+	bench := modules.BoilerRunBenchmark(modules.BoilerCleanUp, 1)
+	fmt.Printf("Clean up lasted: %d ms\n", bench.GetDuration().Milliseconds())
+
+	var suite shared.BenchmarkSuite
 
 	suite.ReadOne = []shared.Benchmark{
 		modules.BoilerRunBenchmark(modules.BoilerReadOne, 4000),
@@ -34,6 +36,7 @@ func main() {
 	}
 
 	suite.Print()
+
 }
 
 func averageDuration(d time.Duration, N int) int64 {

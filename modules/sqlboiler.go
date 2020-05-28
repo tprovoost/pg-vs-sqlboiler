@@ -110,8 +110,8 @@ func BoilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
 	title := "Smartphone"
 	var product bmodels.Product
 
-	product.Title = wrapS(title)
-	product.Price = wrapD(12345, 2)
+	product.Title = null.NewString(title, true)
+	product.Price = types.NewNullDecimal(decimal.New(12345, 2))
 	product.Tags = []string{"Technology"}
 
 	if err := product.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -184,17 +184,4 @@ func boilerSqlxQuery(ctx context.Context, exec boil.ContextExecutor) error {
 	}
 	fmt.Printf("Average per product: %d\n", sum/len(productsAndQuantities))
 	return nil
-}
-
-func wrapS(s string) null.String {
-	return null.NewString(s, true)
-}
-
-func wrapF(d float64) null.Float64 {
-	return null.NewFloat64(d, true)
-}
-
-func wrapD(value int64, scale int) types.NullDecimal {
-	big := decimal.New(value, scale)
-	return types.NewNullDecimal(big)
 }
