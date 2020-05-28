@@ -41,3 +41,7 @@ https://github.com/go-pg/pg
 ## Installation
 
 Everything should already be in the `go.mod` file. Inc ase of missing imports, go to the main folder of the project and run the command `go get -u -t` in a terminal.
+
+## Running the program
+
+Run the program using `go run main.go`. You can also use the `go build .` and then run the executable `pg-vs-sqlboiler`.
