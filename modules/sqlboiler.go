@@ -3,10 +3,10 @@ package modules
 import (
 	"context"
 	"fmt"
-	"time"
+	"os"
 
 	bmodels "github.com/tprovoost/pg-vs-sqlboiler/modules/bmodels"
-	models "github.com/tprovoost/pg-vs-sqlboiler/modules/shared"
+	shared "github.com/tprovoost/pg-vs-sqlboiler/modules/shared"
 
 	"github.com/ericlagergren/decimal"
 	"github.com/jmoiron/sqlx"
@@ -17,38 +17,33 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/types"
 )
 
-func wrapFunction(ctx context.Context, exec boil.ContextExecutor, fn func(context.Context, boil.ContextExecutor) error) {
-	startTime := time.Now()
-	if err := fn(ctx, exec); err != nil {
-		fmt.Printf("error while running function %v\n", err)
-	}
-	fmt.Printf("<%d ns>\n", time.Now().Sub(startTime))
-}
+// BoilerRunBenchmark executes N times the function read
+// and updates result
+func BoilerRunBenchmark(fn func(context.Context, boil.ContextExecutor) error, N int) shared.Benchmark {
+	benchmark := shared.Benchmark{N: N}
 
-// RunSQLBoiler runs a few methods with the SQL Boiler module
-func RunSQLBoiler() {
-	fmt.Println("-----------")
-	fmt.Println("Starts SQL Boiler")
 	ctx := context.Background()
-
-	// Open handle to database like normal
-	db, err := sqlx.Connect("postgres", "dbname=pgguide user=thomasprovoost host=localhost sslmode=disable")
+	exec, err := sqlx.Connect("postgres", "dbname=pgguide user=thomasprovoost host=localhost sslmode=disable")
 	if err != nil {
-		fmt.Println(err)
-		return
+		fmt.Printf("Could not open DB: %v", err)
+		os.Exit(2)
 	}
-	defer db.Close()
+	defer exec.Close()
 
-	wrapFunction(ctx, db, boilerCleanUp)
-	wrapFunction(ctx, db, boilerRead)
-	wrapFunction(ctx, db, boilerFetchIn)
-	wrapFunction(ctx, db, boilerInsert)
-	wrapFunction(ctx, db, boilerComplexQuery)
-	wrapFunction(ctx, db, boilerSqlxQuery) // to show the compatibility
+	benchmark.StartTimer()
+	for i := 0; i < benchmark.N; i++ {
+		if err := fn(ctx, exec); err != nil {
+			benchmark.Failed = true
+			os.Exit(2)
+		}
+	}
+	benchmark.StopTimer()
+
+	return benchmark
 }
 
-func boilerRead(ctx context.Context, exec boil.ContextExecutor) error {
-	fmt.Println("----------\nRead")
+// BoilerCount counts the amount of products in database
+func BoilerCount(ctx context.Context, exec boil.ContextExecutor) error {
 	cpt, err := bmodels.Products().Count(ctx, exec)
 
 	if err != nil {
@@ -56,51 +51,62 @@ func boilerRead(ctx context.Context, exec boil.ContextExecutor) error {
 	}
 	fmt.Printf("Amount of products: %d\n", cpt)
 
-	secondProduct, err := bmodels.FindProduct(ctx, exec, 2)
-	fmt.Printf("Also, this is the product with id 2:\n%v\n", secondProduct)
-
 	return nil
 }
 
-func boilerFetchIn(ctx context.Context, exec boil.ContextExecutor) error {
-	fmt.Println("----------")
+// BoilerReadOne gets the product with id 2.
+func BoilerReadOne(ctx context.Context, exec boil.ContextExecutor) error {
+	secondProduct, err := bmodels.FindProduct(ctx, exec, 2)
+	if err != nil {
+		return fmt.Errorf("error while prompting count %v", err)
+	}
+
+	if shared.DebugMode {
+		fmt.Printf("Product with id 2:\n%v\n", secondProduct)
+	}
+	return nil
+}
+
+// BoilerFetchIn gets the products with specific IDs.
+func BoilerFetchIn(ctx context.Context, exec boil.ContextExecutor) error {
 	productIds := []int{1, 5, 10}
-	fmt.Printf("Fetches items with known product IDs: %v\n", productIds)
+
+	if shared.DebugMode {
+		fmt.Printf("Fetches items with known product IDs: %v\n", productIds)
+	}
+
 	products, err := bmodels.Products(bmodels.ProductWhere.ID.IN(productIds)).All(ctx, exec)
 
 	if err != nil {
 		return fmt.Errorf("error while fetching multiple products %v", err)
 	}
 
-	for i := 0; i < len(products); i++ {
-		product := products[i]
-		fmt.Printf("%v\n", product)
+	if shared.DebugMode {
+		for i := 0; i < len(products); i++ {
+			product := products[i]
+			fmt.Printf("%v\n", product)
+		}
 	}
 
 	return nil
 }
 
-func boilerCleanUp(ctx context.Context, exec boil.ContextExecutor) error {
-	fmt.Println("----------")
-	fmt.Println("Cleanup:")
+// BoilerCleanUp cleans up database from all inserted products.
+func BoilerCleanUp(ctx context.Context, exec boil.ContextExecutor) error {
 	count, err := bmodels.Products(qm.Where("id>?", 20)).DeleteAll(ctx, exec)
 
 	if err != nil {
 		return fmt.Errorf("could not clean: %v", err)
 	}
-
-	fmt.Printf("Sucessfully deleted %d rows\n", count)
+	if shared.DebugMode {
+		fmt.Printf("Sucessfully deleted %d rows\n", count)
+	}
 
 	return nil
 }
 
-func boilerDelete(ctx context.Context, exec boil.ContextExecutor) error {
-	return nil
-}
-
-func boilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
-	fmt.Println("----------")
-	fmt.Println("Insert:")
+// BoilerInsert creates a single product and inserts it into the database.
+func BoilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
 	title := "Smartphone"
 	var product bmodels.Product
 
@@ -112,24 +118,27 @@ func boilerInsert(ctx context.Context, exec boil.ContextExecutor) error {
 		return fmt.Errorf("error while inserting %v", err)
 	}
 
-	fmt.Println("Product inserted, now reading...")
-	product.Reload(ctx, exec)
+	if shared.DebugMode {
+		fmt.Println("Product inserted, now reading...")
 
-	p, err := bmodels.Products(qm.Where("title=?", title)).One(ctx, exec)
-	if err != nil {
-		return fmt.Errorf("error while reading after inserting %v", err)
+		product.Reload(ctx, exec)
+
+		p, err := bmodels.Products(qm.Where("title=?", title)).One(ctx, exec)
+		if err != nil {
+			return fmt.Errorf("error while reading after inserting %v", err)
+		}
+
+		fmt.Println(p)
 	}
-
-	fmt.Println(p)
 
 	return nil
 }
 
-// Fetch product Ids and their quantity
-func boilerComplexQuery(ctx context.Context, exec boil.ContextExecutor) error {
+// BoilerComplexQuery fetch product Ids and their quantity
+func BoilerComplexQuery(ctx context.Context, exec boil.ContextExecutor) error {
 	fmt.Println("----------")
 	fmt.Println("Make a complex query with Boiler QueryMod:")
-	productsAndQuantities := make([]models.QuantityPerProduct, 0)
+	productsAndQuantities := make([]shared.QuantityPerProduct, 0)
 
 	rows, err := bmodels.NewQuery(
 		qm.Select("product_id, sum(quantity)"),
@@ -139,7 +148,7 @@ func boilerComplexQuery(ctx context.Context, exec boil.ContextExecutor) error {
 	).QueryContext(ctx, exec)
 
 	for rows.Next() {
-		var qpp models.QuantityPerProduct
+		var qpp shared.QuantityPerProduct
 		if err = rows.Scan(&qpp.ProductID, &qpp.Quantity); err != nil {
 			return fmt.Errorf("error while fetching quantity join %v", err)
 		}
@@ -161,7 +170,7 @@ func boilerSqlxQuery(ctx context.Context, exec boil.ContextExecutor) error {
 	db := exec.(*sqlx.DB)
 	fmt.Println("Or use the SQLX equivalent:")
 
-	productsAndQuantities := []models.QuantityPerProduct{}
+	productsAndQuantities := []shared.QuantityPerProduct{}
 
 	err := db.Select(&productsAndQuantities, "SELECT product_id, SUM(quantity) quantity FROM purchase_items GROUP BY product_id ORDER BY product_id")
 

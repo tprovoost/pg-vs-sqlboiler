@@ -2,27 +2,18 @@ package modules
 
 import (
 	"fmt"
-	"time"
+	"os"
 
 	"github.com/tprovoost/pg-vs-sqlboiler/modules/pgmodels"
-	models "github.com/tprovoost/pg-vs-sqlboiler/modules/shared"
+	shared "github.com/tprovoost/pg-vs-sqlboiler/modules/shared"
 
 	"github.com/go-pg/pg/v10"
 )
 
-func wrapPGFunction(db *pg.DB, fn func(*pg.DB) error) {
-	startTime := time.Now()
-	if err := fn(db); err != nil {
-		fmt.Printf("ERROR: %v\n", err)
-	}
-	fmt.Printf("<%d ns>\n", time.Now().Sub(startTime))
-}
-
-// RunPG executes all PG commands
-func RunPG() error {
-	fmt.Println("\n-----------")
-	fmt.Println("Starts PG")
-	fmt.Println("-----------")
+// PGRunBenchmark executes N times the fn function
+// and returns a Benchmark.
+func PGRunBenchmark(fn func(*pg.DB) error, N int) shared.Benchmark {
+	benchmark := shared.Benchmark{N: N}
 
 	db := pg.Connect(&pg.Options{
 		User:      "thomasprovoost",
@@ -31,15 +22,16 @@ func RunPG() error {
 	})
 	defer db.Close()
 
-	wrapPGFunction(db, pgCleanUp)
-	wrapPGFunction(db, pgReadOneProduct)
-	wrapPGFunction(db, pgReadOnePurchaseItem)
-	wrapPGFunction(db, pgFetchIn)
-	wrapPGFunction(db, pgReadAll)
-	wrapPGFunction(db, pgComplexQuery)
-	wrapPGFunction(db, pgInsertOne)
+	benchmark.StartTimer()
+	for i := 0; i < benchmark.N; i++ {
+		if err := fn(db); err != nil {
+			benchmark.Failed = true
+			os.Exit(2)
+		}
+	}
+	benchmark.StopTimer()
 
-	return nil
+	return benchmark
 }
 
 func pgCleanUp(db *pg.DB) error {
@@ -55,33 +47,37 @@ func pgCleanUp(db *pg.DB) error {
 	return nil
 }
 
-func pgReadOneProduct(db *pg.DB) error {
-	fmt.Println("-----------")
-	fmt.Println("Read one element")
-
+// PGReadOne reads one element in the database.
+func PGReadOne(db *pg.DB) error {
 	product := &pgmodels.ProductPG{ID: 2}
 	err := db.Select(product)
 	if err != nil {
 		return fmt.Errorf("error while selecting product %v", err)
 	}
 
-	fmt.Printf("Product with id 2 is: %+v\n", product)
+	if shared.DebugMode {
+		fmt.Printf("Product with id 2 is: %+v\n", product)
+	}
 
 	return nil
 }
 
-func pgFetchIn(db *pg.DB) error {
-	fmt.Println("-----------")
+// PGFetchIn fetches products with specific IDs.
+func PGFetchIn(db *pg.DB) error {
 	productIds := []int{1, 5, 10}
-	fmt.Printf("Fetches items with known product IDs: %v\n", productIds)
+	if shared.DebugMode {
+		fmt.Printf("Fetches items with known product IDs: %v\n", productIds)
+	}
 
 	var products []pgmodels.ProductPG
 	if err := db.Model(&products).WhereIn("id IN (?)", productIds).Select(); err != nil {
 		return fmt.Errorf("Error while fetching multiple products: %v", err)
 	}
 
-	for _, p := range products {
-		fmt.Println(p)
+	if shared.DebugMode {
+		for _, p := range products {
+			fmt.Println(p)
+		}
 	}
 
 	return nil
@@ -102,7 +98,7 @@ func pgReadOnePurchaseItem(db *pg.DB) error {
 	return nil
 }
 
-func pgReadAll(db *pg.DB) error {
+func PGReadAll(db *pg.DB) error {
 	fmt.Println("-----------")
 	fmt.Println("Simply count products")
 	var products []pgmodels.ProductPG
@@ -116,10 +112,10 @@ func pgReadAll(db *pg.DB) error {
 	return nil
 }
 
-func pgComplexQuery(db *pg.DB) error {
+func PGComplexQuery(db *pg.DB) error {
 	fmt.Println("-----------")
 	fmt.Println("Complex query")
-	var qpps []models.QuantityPerProduct
+	var qpps []shared.QuantityPerProduct
 	_, err := db.Query(&qpps, `SELECT product_id, SUM(quantity) quantity FROM purchase_items GROUP BY product_id ORDER BY product_id`)
 
 	if err != nil {
@@ -137,9 +133,8 @@ func pgComplexQuery(db *pg.DB) error {
 	return nil
 }
 
-func pgInsertOne(db *pg.DB) error {
-	fmt.Println("-----------")
-	fmt.Println("Insert one product into database")
+// PGInsert inserts one product into the database
+func PGInsert(db *pg.DB) error {
 	var product pgmodels.ProductPG
 	title := "Smartphone"
 
@@ -151,15 +146,17 @@ func pgInsertOne(db *pg.DB) error {
 		return fmt.Errorf("Could not insert product %s. reason: %v", title, err)
 	}
 
-	fmt.Println("Inserted... now read")
+	if shared.DebugMode {
+		fmt.Println("Inserted... now read")
 
-	var p pgmodels.ProductPG
+		var p pgmodels.ProductPG
 
-	if err := db.Model(&p).Where("title=?", title).Select(); err != nil {
-		return fmt.Errorf("Could not read product %s. reason: %v", title, err)
+		if err := db.Model(&p).Where("title=?", title).Select(); err != nil {
+			return fmt.Errorf("Could not read product %s. reason: %v", title, err)
+		}
+
+		fmt.Println(p)
 	}
-
-	fmt.Println(p)
 
 	return nil
 }
